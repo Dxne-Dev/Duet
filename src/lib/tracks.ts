@@ -1,0 +1,164 @@
+import type { DbTrack } from "@/db/schema";
+
+export type Singer = "A" | "B" | "BOTH";
+
+export type LyricLine = {
+  at: number;
+  end: number;
+  singer: Singer;
+  text: string;
+};
+
+export type Track = {
+  id: string;
+  title: string;
+  artist: string;
+  genre: string;
+  duration: number;
+  durationLabel: string;
+  bpm: number;
+  key: string;
+  cover: string;
+  audioUrl?: string;
+  color: string;
+  accent: string;
+  lyrics: LyricLine[];
+};
+
+export function dbTrackToTrack(dbTrack: DbTrack): Track {
+  return {
+    id: dbTrack.id,
+    title: dbTrack.title,
+    artist: dbTrack.artist,
+    genre: dbTrack.genre,
+    duration: dbTrack.duration,
+    durationLabel: dbTrack.durationLabel,
+    bpm: dbTrack.bpm,
+    key: dbTrack.key,
+    cover: dbTrack.coverUrl,
+    audioUrl: dbTrack.audioUrl || undefined,
+    color: dbTrack.color,
+    accent: dbTrack.accent,
+    lyrics: (dbTrack.lyrics as LyricLine[]) || [],
+  };
+}
+
+export const tracks: Track[] = [
+  {
+    id: "minuit-zero",
+    title: "Minuit Zéro",
+    artist: "Nova & Sway",
+    genre: "Pop urbaine",
+    duration: 72,
+    durationLabel: "1:12",
+    bpm: 104,
+    key: "F min",
+    cover: "/covers/minuit-zero.jpg",
+    color: "#ef3f8f",
+    accent: "#ffbfdc",
+    lyrics: [
+      { at: 0, end: 5, singer: "BOTH", text: "Respire… le duel commence" },
+      { at: 5, end: 10, singer: "A", text: "J'ai laissé la ville allumée derrière moi" },
+      { at: 10, end: 15, singer: "A", text: "Les néons me suivent mais je n'les entends pas" },
+      { at: 15, end: 20, singer: "B", text: "Tu cours après l'heure, moi je danse avec elle" },
+      { at: 20, end: 25, singer: "B", text: "Nos ombres se répondent sous la lune artificielle" },
+      { at: 25, end: 30, singer: "A", text: "Si demain nous oublie, reste encore un peu" },
+      { at: 30, end: 35, singer: "B", text: "On remet les compteurs à minuit zéro" },
+      { at: 35, end: 40, singer: "A", text: "Plus rien à promettre, plus rien dans les poches" },
+      { at: 40, end: 45, singer: "B", text: "Seulement cette musique qui nous rapproche" },
+      { at: 45, end: 51, singer: "BOTH", text: "Minuit zéro — on recommence tout" },
+      { at: 51, end: 57, singer: "A", text: "Ta voix dans le noir me ramène à nous" },
+      { at: 57, end: 63, singer: "B", text: "Minuit zéro — le monde peut attendre" },
+      { at: 63, end: 69, singer: "BOTH", text: "Encore une seconde avant de redescendre" },
+      { at: 69, end: 72, singer: "BOTH", text: "Minuit… zéro" },
+    ],
+  },
+  {
+    id: "coeur-laser",
+    title: "Cœur Laser",
+    artist: "Léna K. feat. Milo",
+    genre: "Électro pop",
+    duration: 78,
+    durationLabel: "1:18",
+    bpm: 122,
+    key: "C min",
+    cover: "/covers/coeur-laser.jpg",
+    color: "#5046e5",
+    accent: "#b8b4ff",
+    lyrics: [
+      { at: 0, end: 5, singer: "BOTH", text: "Trois, deux, un — lumière" },
+      { at: 5, end: 11, singer: "A", text: "Tu me regardes en ultraviolet" },
+      { at: 11, end: 17, singer: "B", text: "Je lis tes messages dans les reflets" },
+      { at: 17, end: 23, singer: "A", text: "La nuit nous dessine en lignes parfaites" },
+      { at: 23, end: 29, singer: "B", text: "Un battement de trop et tout s'arrête" },
+      { at: 29, end: 35, singer: "BOTH", text: "Cœur laser, vise-moi encore" },
+      { at: 35, end: 41, singer: "BOTH", text: "Fais monter la lumière plus fort" },
+      { at: 41, end: 47, singer: "A", text: "Pas besoin de filtre, pas besoin de décor" },
+      { at: 47, end: 53, singer: "B", text: "Quand le silence tombe, on danse encore" },
+      { at: 53, end: 59, singer: "A", text: "Éclair rouge sur nos deux visages" },
+      { at: 59, end: 65, singer: "B", text: "On se retrouve au milieu de l'orage" },
+      { at: 65, end: 73, singer: "BOTH", text: "Cœur laser, cœur laser, traverse la nuit" },
+      { at: 73, end: 78, singer: "BOTH", text: "Et ramène-moi ici" },
+    ],
+  },
+  {
+    id: "sans-reseau",
+    title: "Sans Réseau",
+    artist: "Yanis Blue",
+    genre: "Pop solaire",
+    duration: 76,
+    durationLabel: "1:16",
+    bpm: 112,
+    key: "A maj",
+    cover: "/covers/sans-reseau.jpg",
+    color: "#ff6d4a",
+    accent: "#ffd25e",
+    lyrics: [
+      { at: 0, end: 5, singer: "BOTH", text: "Fenêtres ouvertes, volume à fond" },
+      { at: 5, end: 11, singer: "A", text: "J'ai mis le téléphone en mode avion" },
+      { at: 11, end: 17, singer: "B", text: "La route nous appelle, on change de direction" },
+      { at: 17, end: 23, singer: "A", text: "Du soleil plein les yeux, du vent dans les chansons" },
+      { at: 23, end: 29, singer: "B", text: "On n'a besoin de rien, juste un peu d'horizon" },
+      { at: 29, end: 35, singer: "BOTH", text: "Sans réseau, sans regrets" },
+      { at: 35, end: 41, singer: "A", text: "On roule jusqu'où la mer disparaît" },
+      { at: 41, end: 47, singer: "B", text: "Sans réseau, promets-moi" },
+      { at: 47, end: 53, singer: "BOTH", text: "Qu'on ne rentrera pas cette fois" },
+      { at: 53, end: 59, singer: "A", text: "La nuit arrive mais personne ne freine" },
+      { at: 59, end: 65, singer: "B", text: "On garde les souvenirs, on perd les antennes" },
+      { at: 65, end: 71, singer: "BOTH", text: "Sans réseau, le monde est à nous" },
+      { at: 71, end: 76, singer: "BOTH", text: "Chante plus fort jusqu'au bout" },
+    ],
+  },
+  {
+    id: "dernier-metro",
+    title: "Dernier Métro",
+    artist: "Kairo 18",
+    genre: "Rap mélodique",
+    duration: 80,
+    durationLabel: "1:20",
+    bpm: 92,
+    key: "D min",
+    cover: "/covers/dernier-metro.jpg",
+    color: "#b8e42d",
+    accent: "#e8ff94",
+    lyrics: [
+      { at: 0, end: 5, singer: "BOTH", text: "Attention à la fermeture des portes" },
+      { at: 5, end: 11, singer: "A", text: "J'ai raté le dernier métro pour écrire seize mesures" },
+      { at: 11, end: 17, singer: "A", text: "La ville vide a des secrets sur chaque mur" },
+      { at: 17, end: 23, singer: "B", text: "Tu parles de demain comme si tout était sûr" },
+      { at: 23, end: 29, singer: "B", text: "Moi j'avance sans ticket, le regard un peu dur" },
+      { at: 29, end: 35, singer: "A", text: "Quai désert, cœur plein, j'attends pas le signal" },
+      { at: 35, end: 41, singer: "B", text: "Chaque détour me rapproche du point final" },
+      { at: 41, end: 47, singer: "A", text: "Les tunnels font l'écho de tout ce qu'on vaut" },
+      { at: 47, end: 53, singer: "B", text: "On remonte à la surface au dernier métro" },
+      { at: 53, end: 59, singer: "A", text: "J'ai la cadence lourde et les idées claires" },
+      { at: 59, end: 65, singer: "B", text: "Tu as le feu tranquille, j'ai l'étincelle en l'air" },
+      { at: 65, end: 72, singer: "BOTH", text: "Dernier métro, personne sur le quai" },
+      { at: 72, end: 80, singer: "BOTH", text: "Deux voix dans la rame, impossible d'arrêter" },
+    ],
+  },
+];
+
+export function getTrack(trackId: string) {
+  return tracks.find((track) => track.id === trackId);
+}
