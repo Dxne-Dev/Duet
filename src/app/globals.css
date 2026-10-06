@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f4f1eb;
+  --ink: #111111;
+  --pink: #f13d8f;
+  --lime: #b8e735;
+  --blue: #7cc7ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--paper);
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+a {
+  cursor: pointer;
+}
+
+::selection {
+  color: white;
+  background: var(--pink);
+}
+
+.track-card {
+  --track-color: #f13d8f;
+  border: 2px solid transparent;
+  border-radius: 1rem;
+  padding: 0.55rem;
+  background: #f7f6f3;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.track-card:hover {
+  transform: translateY(-4px);
+  background: white;
+}
+
+.track-card.selected {
+  border-color: var(--ink);
+  background: white;
+  box-shadow: 5px 5px 0 var(--track-color);
+}
+
+.wave-bar {
+  border-radius: 999px;
+  transform-origin: center;
+  animation: wave 780ms ease-in-out infinite alternate;
+}
+
+.live-dot {
+  animation: live-pulse 1.5s ease-out infinite;
+}
+
+.lyric-in {
+  animation: lyric-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.countdown-in {
+  animation: countdown-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.join-in {
+  animation: join-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.turn-pill {
+  animation: pill-in 260ms ease-out both;
+}
+
+@keyframes wave {
+  from { transform: scaleY(0.45); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(128, 221, 53, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(128, 221, 53, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(128, 221, 53, 0); }
+}
+
+@keyframes lyric-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes countdown-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes join-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pill-in {
+  from { opacity: 0; transform: translateY(-7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .track-card.selected {
+    box-shadow: 3px 3px 0 var(--track-color);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
