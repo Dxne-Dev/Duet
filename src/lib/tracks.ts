@@ -53,7 +53,7 @@ export const tracks: Track[] = [
     durationLabel: "1:12",
     bpm: 104,
     key: "F min",
-    cover: "/covers/minuit-zero.jpg",
+    cover: "/covers/minuit-zero.svg",
     color: "#ef3f8f",
     accent: "#ffbfdc",
     lyrics: [
@@ -82,7 +82,7 @@ export const tracks: Track[] = [
     durationLabel: "1:18",
     bpm: 122,
     key: "C min",
-    cover: "/covers/coeur-laser.jpg",
+    cover: "/covers/coeur-laser.svg",
     color: "#5046e5",
     accent: "#b8b4ff",
     lyrics: [
@@ -110,7 +110,7 @@ export const tracks: Track[] = [
     durationLabel: "1:16",
     bpm: 112,
     key: "A maj",
-    cover: "/covers/sans-reseau.jpg",
+    cover: "/covers/sans-reseau.svg",
     color: "#ff6d4a",
     accent: "#ffd25e",
     lyrics: [
@@ -138,7 +138,7 @@ export const tracks: Track[] = [
     durationLabel: "1:20",
     bpm: 92,
     key: "D min",
-    cover: "/covers/dernier-metro.jpg",
+    cover: "/covers/dernier-metro.svg",
     color: "#b8e42d",
     accent: "#e8ff94",
     lyrics: [
