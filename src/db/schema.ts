@@ -38,6 +38,8 @@ export const rooms = pgTable(
     playerAReady: boolean("player_a_ready").notNull().default(false),
     playerBReady: boolean("player_b_ready").notNull().default(false),
     startTimestamp: bigint("start_timestamp", { mode: "number" }),
+    playerAScore: integer("player_a_score"),
+    playerBScore: integer("player_b_score"),
     abandonedByName: varchar("abandoned_by_name", { length: 50 }),
     destroyAt: bigint("destroy_at", { mode: "number" }),
     offer: jsonb("offer").$type<SignalDescription>(),

@@ -208,13 +208,77 @@ export default function VocalDuelApp() {
     return () => window.clearInterval(timer);
   }, [loadRoom, room?.code, room?.status, token]);
 
+  const mySingingHitsRef = useRef(0);
+  const myTurnTicksRef = useRef(0);
+  const interruptionHitsRef = useRef(0);
+  const micLevelRef = useRef(micLevel);
+  const currentLineRef = useRef(currentLine);
+  const isMyTurnRef = useRef(isMyTurn);
+
+  useEffect(() => {
+    micLevelRef.current = micLevel;
+  }, [micLevel]);
+
+  useEffect(() => {
+    currentLineRef.current = currentLine;
+  }, [currentLine]);
+
+  useEffect(() => {
+    isMyTurnRef.current = isMyTurn;
+  }, [isMyTurn]);
+
+  // Reset counters when duel starts
+  useEffect(() => {
+    if (room?.status === "PLAYING") {
+      mySingingHitsRef.current = 0;
+      myTurnTicksRef.current = 0;
+      interruptionHitsRef.current = 0;
+    }
+  }, [room?.status]);
+
   useEffect(() => {
     if (room?.status !== "PLAYING" || !room.startTimestamp) return;
-    const update = () => setElapsed((Date.now() - room.startTimestamp!) / 1000);
+    const update = () => {
+      const currentSeconds = (Date.now() - room.startTimestamp!) / 1000;
+      setElapsed(currentSeconds);
+
+      const line = currentLineRef.current;
+      const level = micLevelRef.current;
+      const myTurn = isMyTurnRef.current;
+
+      if (currentSeconds >= 0 && line && room.role) {
+        if (myTurn) {
+          myTurnTicksRef.current += 1;
+          if (level >= 0.06) {
+            mySingingHitsRef.current += 1;
+          }
+        } else if (line.singer !== "BOTH" && line.singer !== room.role) {
+          if (level >= 0.32) {
+            interruptionHitsRef.current += 1;
+          }
+        }
+      }
+    };
     update();
     const timer = window.setInterval(update, 50);
     return () => window.clearInterval(timer);
-  }, [room?.status, room?.startTimestamp]);
+  }, [room?.status, room?.startTimestamp, room?.role]);
+
+  const computeScore = useCallback(() => {
+    const totalTicks = myTurnTicksRef.current;
+    if (totalTicks === 0) {
+      return 85;
+    }
+    const hits = mySingingHitsRef.current;
+    const interruptions = interruptionHitsRef.current;
+
+    const hitRatio = hits / totalTicks;
+    const penaltyRatio = (interruptions / totalTicks) * 0.2;
+    const netRatio = Math.max(0, hitRatio - penaltyRatio);
+
+    // Map ratio to 45 - 99 range so it stays fun and motivating
+    return Math.min(99, Math.max(45, Math.round(42 + netRatio * 56)));
+  }, []);
 
   const postRoomAction = useCallback(
     async (action: string, extra: Record<string, unknown> = {}) => {
@@ -241,8 +305,9 @@ export default function VocalDuelApp() {
       return;
     }
     finishSent.current = true;
-    void postRoomAction("finish").catch(() => undefined);
-  }, [elapsed, postRoomAction, room?.status, selectedTrack.duration]);
+    const myScore = computeScore();
+    void postRoomAction("finish", { score: myScore }).catch(() => undefined);
+  }, [computeScore, elapsed, postRoomAction, room?.status, selectedTrack.duration]);
 
   const rememberSession = (nextRoom: PublicRoom, nextToken: string) => {
     window.localStorage.setItem("duet:nickname", nickname.trim());
@@ -1198,10 +1263,26 @@ function Arena({ room, track, elapsed, currentLine, isMyTurn, micEnabled, micLev
 }
 
 function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; track: Track; onHome: () => void; onShare: () => void; copied: boolean }) {
-  const seed = room.code.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
-  const scoreA = 88 + (seed % 9);
-  const scoreB = 87 + ((seed * 3) % 10);
-  const winner = scoreA >= scoreB ? room.players[0] : room.players[1];
+  const scoreA = room.playerAScore ?? 85;
+  const scoreB = room.playerBScore ?? 85;
+  const isTie = scoreA === scoreB;
+  const winnerRole = isTie ? "TIE" : scoreA > scoreB ? "A" : "B";
+  const duoSync = Math.round((scoreA + scoreB) / 2);
+
+  const myRole = room.role;
+  let headline = "Vous étiez en feu.";
+  let subtitle = "Performance du duel";
+  if (isTie) {
+    headline = "Égalité parfaite !";
+    subtitle = "Duel au sommet";
+  } else if (myRole && winnerRole === myRole) {
+    headline = "Victoire écrasante !";
+    subtitle = "Tu as remporté le duel";
+  } else if (myRole && winnerRole !== "TIE") {
+    headline = "Superbe duel !";
+    subtitle = "Ton partenaire a gagné";
+  }
+
   return (
     <main className="min-h-screen bg-[#f4f1eb] px-5 py-8 text-black sm:px-8">
       <header className="mx-auto flex max-w-6xl items-center justify-between">
@@ -1220,19 +1301,22 @@ function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; t
           </div>
         </div>
         <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-14">
-          <div className="mb-5 flex items-center gap-2 text-[#d92f72]"><Sparkles size={18} /><span className="text-xs font-black uppercase tracking-[0.15em]">Performance du duo</span></div>
-          <h2 className="text-4xl font-black leading-[0.95] tracking-[-0.055em] sm:text-6xl">Vous étiez en feu.</h2>
-          <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <ScorePlayer player={room.players[0]} score={scoreA} winner={winner.role === "A"} />
-            <span className="text-sm font-black text-black/25">VS</span>
-            <ScorePlayer player={room.players[1]} score={scoreB} winner={winner.role === "B"} />
+          <div className="mb-5 flex items-center gap-2 text-[#d92f72]">
+            <Sparkles size={18} />
+            <span className="text-xs font-black uppercase tracking-[0.15em]">{subtitle}</span>
           </div>
-          <div className="mb-7 flex items-center justify-center gap-2 rounded-xl bg-[#effbd2] px-4 py-3 text-sm font-black">
-            <Trophy size={18} className="text-[#609e1e]" /> Duo synchro à {Math.min(scoreA, scoreB) + 2} %
+          <h2 className="text-4xl font-black leading-[0.95] tracking-[-0.055em] sm:text-6xl">{headline}</h2>
+          <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+            <ScorePlayer player={room.players[0]} score={scoreA} winner={winnerRole === "A"} isTie={isTie} />
+            <span className="text-sm font-black text-black/25">VS</span>
+            <ScorePlayer player={room.players[1]} score={scoreB} winner={winnerRole === "B"} isTie={isTie} />
+          </div>
+          <div className="mb-7 flex items-center justify-center gap-2 rounded-xl bg-[#effbd2] px-4 py-3 text-sm font-black text-[#3d690e]">
+            <Trophy size={18} className="text-[#609e1e]" /> Duo synchro à {duoSync} %
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={onHome} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-black font-black text-white"><RotateCcw size={18} /> Nouveau duel</button>
-            <button type="button" onClick={onShare} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-black font-black"><Share2 size={18} /> {copied ? "Lien copié" : "Partager"}</button>
+            <button type="button" onClick={onHome} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-black font-black text-white hover:bg-black/90 transition"><RotateCcw size={18} /> Nouveau duel</button>
+            <button type="button" onClick={onShare} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-black font-black hover:bg-black/5 transition"><Share2 size={18} /> {copied ? "Lien copié" : "Partager"}</button>
           </div>
         </div>
       </section>
@@ -1240,13 +1324,16 @@ function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; t
   );
 }
 
-function ScorePlayer({ player, score, winner }: { player: PublicRoom["players"][number]; score: number; winner: boolean }) {
+function ScorePlayer({ player, score, winner, isTie }: { player: PublicRoom["players"][number]; score: number; winner: boolean; isTie?: boolean }) {
   return (
     <div className="relative text-center">
-      {winner ? <Crown size={20} className="absolute -top-5 left-1/2 -translate-x-1/2 text-[#e5ad14]" fill="currentColor" /> : null}
+      {winner ? <Crown size={22} className="absolute -top-6 left-1/2 -translate-x-1/2 text-[#e5ad14] animate-bounce" fill="currentColor" /> : null}
       <Avatar name={player.name} role={player.role} large />
       <p className="mt-2 truncate text-sm font-black">{player.name}</p>
       <p className="mt-1 text-3xl font-black tracking-[-0.05em]">{score}<span className="text-base text-black/30">%</span></p>
+      <span className={`inline-block mt-1.5 text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full ${winner ? "bg-[#e5ad14]/20 text-[#9e7506]" : isTie ? "bg-black/5 text-black/60" : "bg-black/5 text-black/40"}`}>
+        {winner ? "Vainqueur 👑" : isTie ? "Égalité" : "Challenger"}
+      </span>
     </div>
   );
 }

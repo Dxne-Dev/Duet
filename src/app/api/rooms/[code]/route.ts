@@ -66,6 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
       nickname?: unknown;
       token?: unknown;
       ready?: unknown;
+      score?: unknown;
     };
     const room = await findRoom(code);
 
@@ -179,12 +180,18 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (body.action === "finish") {
+      const score = typeof body.score === "number" ? Math.max(0, Math.min(100, Math.round(body.score))) : null;
       const [updatedRoom] = await db
         .update(rooms)
-        .set({ status: "FINISHED", updatedAt: new Date() })
+        .set({
+          status: "FINISHED",
+          ...(role === "A" && score !== null ? { playerAScore: score } : {}),
+          ...(role === "B" && score !== null ? { playerBScore: score } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(rooms.id, room.id))
         .returning();
-      return Response.json({ room: toPublicRoom(updatedRoom, token) });
+      return Response.json({ room: toPublicRoom(updatedRoom ?? room, token) });
     }
 
     return Response.json({ error: "Action inconnue." }, { status: 400 });

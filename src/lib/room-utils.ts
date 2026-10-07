@@ -11,6 +11,8 @@ export type PublicRoom = {
   createdAt: string;
   abandonedByName?: string | null;
   destroyAt?: number | null;
+  playerAScore?: number | null;
+  playerBScore?: number | null;
   players: {
     role: PlayerRole;
     name: string | null;
@@ -35,6 +37,8 @@ export function toPublicRoom(room: Room, token: string | null): PublicRoom {
     createdAt: room.createdAt.toISOString(),
     abandonedByName: room.abandonedByName ?? null,
     destroyAt: room.destroyAt ?? null,
+    playerAScore: room.playerAScore ?? null,
+    playerBScore: room.playerBScore ?? null,
     players: [
       {
         role: "A",
