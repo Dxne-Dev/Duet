@@ -62,6 +62,7 @@ export function cleanNickname(value: unknown) {
   return nickname.length >= 2 ? nickname : null;
 }
 
-export function cleanRoomCode(value: string) {
+export function cleanRoomCode(value: unknown) {
+  if (typeof value !== "string") return "";
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 }
