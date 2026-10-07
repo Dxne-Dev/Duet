@@ -134,10 +134,7 @@ export default function VocalDuelApp() {
 
   const currentLine = useMemo(() => {
     if (!selectedTrack) return undefined;
-    return (
-      selectedTrack.lyrics.find((line) => elapsed >= line.at && elapsed < line.end) ??
-      (elapsed >= selectedTrack.duration ? selectedTrack.lyrics.at(-1) : selectedTrack.lyrics[0])
-    );
+    return selectedTrack.lyrics.find((line) => elapsed >= line.at && elapsed < line.end);
   }, [elapsed, selectedTrack]);
 
   const isMyTurn = Boolean(
@@ -1085,12 +1082,16 @@ type ArenaProps = {
 };
 
 function Arena({ room, track, elapsed, currentLine, isMyTurn, micEnabled, micLevel, connection, onEnableMic, onLeave }: ArenaProps) {
-  const lineIndex = Math.max(0, track.lyrics.findIndex((line) => line === currentLine));
-  const previousLine = track.lyrics[lineIndex - 1];
-  const nextLine = track.lyrics[lineIndex + 1];
+  const lineIndex = track.lyrics.findIndex((line) => line === currentLine);
+  const previousLine = lineIndex > 0 ? track.lyrics[lineIndex - 1] : undefined;
+  const upcomingLine = track.lyrics.find((line) => line.at > elapsed);
+  const isIntro = elapsed < (track.lyrics[0]?.at ?? 0);
+  const secondsUntilNext = upcomingLine ? Math.max(1, Math.ceil(upcomingLine.at - elapsed)) : 0;
+  const nextPlayer = room.players.find((player) => player.role === upcomingLine?.singer);
+  const nextLine = lineIndex >= 0 ? track.lyrics[lineIndex + 1] : upcomingLine;
   const countdown = Math.max(0, Math.ceil(-elapsed));
   const progress = Math.max(0, Math.min(100, (elapsed / track.duration) * 100));
-  const singerColor = currentLine?.singer === "A" ? "#b8e735" : currentLine?.singer === "B" ? "#7cc7ff" : "#f4a5cc";
+  const singerColor = currentLine?.singer === "A" ? "#b8e735" : currentLine?.singer === "B" ? "#7cc7ff" : currentLine?.singer === "BOTH" ? "#f4a5cc" : "#ffffff";
   const activePlayer = room.players.find((player) => player.role === currentLine?.singer);
 
   return (
@@ -1136,17 +1137,35 @@ function Arena({ room, track, elapsed, currentLine, isMyTurn, micEnabled, micLev
             <p className="text-[10rem] font-black leading-none tracking-[-0.1em]" style={{ color: countdown % 2 === 0 ? "#b8e735" : "#7cc7ff" }}>{countdown}</p>
             <p className="mt-5 text-lg font-bold text-white/60">La musique part sur vos deux appareils</p>
           </div>
+        ) : !currentLine ? (
+          <div className="flex flex-col items-center">
+            <div className="mb-8 flex min-h-8 items-center">
+              <span className="turn-pill inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white">
+                <Headphones size={15} />
+                {isIntro
+                  ? `Intro musicale · Départ dans ${secondsUntilNext}s`
+                  : `Pause instrumentale · Reprise dans ${secondsUntilNext}s`}
+              </span>
+            </div>
+            <p className="min-h-9 text-xs font-black uppercase tracking-[0.18em] text-white/40">
+              {upcomingLine ? `Prochaine voix : ${upcomingLine.singer === "BOTH" ? "Ensemble" : `Voix ${upcomingLine.singer} (${nextPlayer?.name ?? "Joueur"})`}` : "Fin du morceau"}
+            </p>
+            <h1 className="lyric-in my-8 max-w-4xl text-[clamp(2rem,5.5vw,4.5rem)] font-black leading-[1.05] tracking-[-0.04em] text-white/35 italic">
+              {upcomingLine ? `« ${upcomingLine.text} »` : "♫ Musique..."}
+            </h1>
+            <p className="min-h-9 text-xs font-bold uppercase tracking-wider text-white/25">Écoutez le rythme</p>
+          </div>
         ) : (
           <>
             <div className="mb-8 flex min-h-8 items-center">
               <span className="turn-pill inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black" style={{ backgroundColor: singerColor }}>
                 {isMyTurn ? <Mic2 size={15} /> : <Headphones size={15} />}
-                {currentLine?.singer === "BOTH" ? "Ensemble !" : isMyTurn ? "À toi de chanter" : `${activePlayer?.name ?? "L’autre voix"} chante`}
+                {currentLine.singer === "BOTH" ? "Ensemble !" : isMyTurn ? "À toi de chanter" : `${activePlayer?.name ?? "L’autre voix"} chante`}
               </span>
             </div>
             <p className="min-h-9 text-xl font-black tracking-[-0.025em] text-white/18 sm:text-2xl">{previousLine?.text}</p>
-            <h1 key={`${lineIndex}-${currentLine?.text}`} className="lyric-in my-8 max-w-5xl text-[clamp(2.6rem,7.2vw,6.8rem)] font-black leading-[0.96] tracking-[-0.065em]" style={{ color: singerColor }}>
-              {currentLine?.text}
+            <h1 key={`${lineIndex}-${currentLine.text}`} className="lyric-in my-8 max-w-5xl text-[clamp(2.6rem,7.2vw,6.8rem)] font-black leading-[0.96] tracking-[-0.065em]" style={{ color: singerColor }}>
+              {currentLine.text}
             </h1>
             <p className="min-h-9 max-w-3xl text-xl font-black tracking-[-0.025em] text-white/32 sm:text-3xl">{nextLine?.text}</p>
           </>
