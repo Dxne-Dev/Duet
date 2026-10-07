@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlayerRole } from "@/lib/room-utils";
 import type { Track } from "@/lib/tracks";
+import { getIceServers } from "@/lib/webrtc-config";
 
 let sharedAudioContext: AudioContext | null = null;
 
@@ -99,7 +100,7 @@ export function usePeerAudio({ code, token, role, enabled, transmit }: PeerAudio
         }
 
         peer = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          iceServers: getIceServers(),
         });
         stream.getTracks().forEach((track) => peer?.addTrack(track, stream!));
 
