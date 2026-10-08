@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Share2,
   Sparkles,
+  Swords,
   Trophy,
   Upload,
   Users,
@@ -227,9 +228,10 @@ export default function VocalDuelApp() {
     isMyTurnRef.current = isMyTurn;
   }, [isMyTurn]);
 
-  // Reset counters when duel starts
+  // Reset counters and finish state when duel starts or enters ready
   useEffect(() => {
-    if (room?.status === "PLAYING") {
+    if (room?.status === "READY" || room?.status === "PLAYING") {
+      finishSent.current = false;
       mySingingHitsRef.current = 0;
       myTurnTicksRef.current = 0;
       interruptionHitsRef.current = 0;
@@ -503,8 +505,21 @@ export default function VocalDuelApp() {
     );
   }
 
-  if (room?.status === "FINISHED") {
-    return <Results room={room} track={selectedTrack} onHome={goHome} onShare={copyInvite} copied={copied} />;
+  if (room?.status === "FINISHED" || room?.status === "REMATCH_PROPOSED") {
+    return (
+      <Results
+        room={room}
+        track={selectedTrack}
+        catalogTracks={catalogTracks}
+        onHome={goHome}
+        onShare={copyInvite}
+        onProposeRematch={(nextTrackId) => void postRoomAction("propose_rematch", { trackId: nextTrackId }).catch((rematchErr: Error) => setError(rematchErr.message))}
+        onAcceptRematch={() => void postRoomAction("accept_rematch").catch((rematchErr: Error) => setError(rematchErr.message))}
+        onDeclineRematch={() => void postRoomAction("decline_rematch").catch(() => goHome())}
+        onCancelRematch={() => void postRoomAction("cancel_rematch").catch(() => goHome())}
+        copied={copied}
+      />
+    );
   }
 
   if (room) {
@@ -1262,7 +1277,32 @@ function Arena({ room, track, elapsed, currentLine, isMyTurn, micEnabled, micLev
   );
 }
 
-function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; track: Track; onHome: () => void; onShare: () => void; copied: boolean }) {
+function Results({
+  room,
+  track,
+  catalogTracks,
+  onHome,
+  onShare,
+  onProposeRematch,
+  onAcceptRematch,
+  onDeclineRematch,
+  onCancelRematch,
+  copied,
+}: {
+  room: PublicRoom;
+  track: Track;
+  catalogTracks: Track[];
+  onHome: () => void;
+  onShare: () => void;
+  onProposeRematch: (trackId: string) => void;
+  onAcceptRematch: () => void;
+  onDeclineRematch: () => void;
+  onCancelRematch: () => void;
+  copied: boolean;
+}) {
+  const [showTrackModal, setShowTrackModal] = useState(false);
+  const [selectedRematchTrackId, setSelectedRematchTrackId] = useState<string>(track.id);
+
   const scoreA = room.playerAScore ?? 85;
   const scoreB = room.playerBScore ?? 85;
   const isTie = scoreA === scoreB;
@@ -1270,6 +1310,10 @@ function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; t
   const duoSync = Math.round((scoreA + scoreB) / 2);
 
   const myRole = room.role;
+  const isHost = myRole === "A";
+  const partnerPlayer = room.players.find((p) => p.role !== myRole);
+  const partnerName = partnerPlayer?.name || (isHost ? "Voix B" : "Voix A");
+
   let headline = "Vous étiez en feu.";
   let subtitle = "Performance du duel";
   if (isTie) {
@@ -1283,43 +1327,233 @@ function Results({ room, track, onHome, onShare, copied }: { room: PublicRoom; t
     subtitle = "Ton partenaire a gagné";
   }
 
+  const isRematchPending = room.status === "REMATCH_PROPOSED";
+
   return (
-    <main className="min-h-screen bg-[#f4f1eb] px-5 py-8 text-black sm:px-8">
+    <main className="relative min-h-screen bg-[#f4f1eb] px-5 py-8 text-black sm:px-8">
       <header className="mx-auto flex max-w-6xl items-center justify-between">
         <Logo />
-        <span className="rounded-full bg-white px-3 py-2 text-xs font-black uppercase tracking-wider shadow-sm">Duel terminé</span>
+        <span className="rounded-full bg-white px-3 py-2 text-xs font-black uppercase tracking-wider shadow-sm">
+          {isRematchPending ? "Revanche en attente" : "Duel terminé"}
+        </span>
       </header>
+
       <section className="mx-auto mt-8 grid max-w-6xl overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_80px_rgba(31,26,20,0.13)] lg:grid-cols-[0.82fr_1.18fr]">
         <div className="relative min-h-[360px] overflow-hidden bg-black">
-          <img src={track.cover} alt={`Pochette de ${track.title}`} className="absolute inset-0 h-full w-full object-cover opacity-65" />
+          <img
+            src={track.cover}
+            alt={`Pochette de ${track.title}`}
+            className="absolute inset-0 h-full w-full object-cover opacity-65"
+          />
           <div className="absolute inset-0 bg-black/35" />
           <div className="absolute inset-x-0 bottom-0 p-7 text-white sm:p-10">
             <p className="text-xs font-black uppercase tracking-[0.15em] text-white/55">Vous avez chanté</p>
             <h1 className="mt-2 text-4xl font-black tracking-[-0.05em]">{track.title}</h1>
-            <p className="mt-2 font-bold text-white/60">{track.artist} · {track.durationLabel}</p>
-            <div className="mt-6"><WaveBars color="#b8e735" /></div>
+            <p className="mt-2 font-bold text-white/60">
+              {track.artist} · {track.durationLabel}
+            </p>
+            <div className="mt-6">
+              <WaveBars color="#b8e735" />
+            </div>
           </div>
         </div>
+
         <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-14">
           <div className="mb-5 flex items-center gap-2 text-[#d92f72]">
             <Sparkles size={18} />
             <span className="text-xs font-black uppercase tracking-[0.15em]">{subtitle}</span>
           </div>
           <h2 className="text-4xl font-black leading-[0.95] tracking-[-0.055em] sm:text-6xl">{headline}</h2>
+
           <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <ScorePlayer player={room.players[0]} score={scoreA} winner={winnerRole === "A"} isTie={isTie} />
             <span className="text-sm font-black text-black/25">VS</span>
             <ScorePlayer player={room.players[1]} score={scoreB} winner={winnerRole === "B"} isTie={isTie} />
           </div>
+
           <div className="mb-7 flex items-center justify-center gap-2 rounded-xl bg-[#effbd2] px-4 py-3 text-sm font-black text-[#3d690e]">
             <Trophy size={18} className="text-[#609e1e]" /> Duo synchro à {duoSync} %
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={onHome} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-black font-black text-white hover:bg-black/90 transition"><RotateCcw size={18} /> Nouveau duel</button>
-            <button type="button" onClick={onShare} className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-black font-black hover:bg-black/5 transition"><Share2 size={18} /> {copied ? "Lien copié" : "Partager"}</button>
+
+          {/* Action buttons with 3 CTAs for Host */}
+          <div className="flex flex-col gap-3">
+            {isHost ? (
+              <button
+                type="button"
+                onClick={() => setShowTrackModal(true)}
+                disabled={isRematchPending}
+                className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#f13d8f] to-[#ff5c77] font-black text-white shadow-lg transition hover:opacity-95 disabled:opacity-50"
+              >
+                <Swords size={20} /> Recommencer un duel avec {partnerName}
+              </button>
+            ) : null}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={onHome}
+                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-black font-black text-white transition hover:bg-black/90"
+              >
+                <RotateCcw size={18} /> Nouveau duel
+              </button>
+              <button
+                type="button"
+                onClick={onShare}
+                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-black font-black transition hover:bg-black/5"
+              >
+                <Share2 size={18} /> {copied ? "Lien copié" : "Partager"}
+              </button>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* Host: Waiting for Guest Rematch Response Banner */}
+      {isHost && isRematchPending ? (
+        <div className="fixed inset-x-4 bottom-6 z-50 mx-auto max-w-xl rounded-2xl border border-black/10 bg-[#1c1c20] p-4 text-white shadow-2xl backdrop-blur">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Loader2 size={20} className="animate-spin text-[#f13d8f]" />
+              <div className="text-xs">
+                <p className="font-black text-white">Revanche envoyée à {partnerName} sur {track.title}</p>
+                <p className="text-white/55 font-medium">En attente de sa réponse...</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelRematch}
+              className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-black text-white hover:bg-white/20 transition"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Guest (Voix B): Popup notification when Host proposes rematch */}
+      {!isHost && isRematchPending ? (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md">
+          <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="relative h-44 overflow-hidden bg-black">
+              <img src={track.cover} alt="" className="h-full w-full object-cover opacity-70" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+              <div className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-[#f13d8f] px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
+                <Swords size={13} /> Revanche en direct
+              </div>
+              <div className="absolute bottom-4 left-5 right-5 text-white">
+                <p className="text-xs font-black uppercase tracking-wider text-white/60">
+                  {partnerName} vous défie à nouveau !
+                </p>
+                <h3 className="text-2xl font-black tracking-tight">{track.title}</h3>
+                <p className="text-xs font-bold text-white/70">{track.artist} · {track.durationLabel}</p>
+              </div>
+            </div>
+
+            <div className="p-6 sm:p-8">
+              <p className="text-sm font-semibold text-black/70 leading-relaxed">
+                <span className="font-black text-black">{partnerName}</span> a relancé un duel dans ce salon sur <span className="font-black text-black">{track.title}</span>.
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={onAcceptRematch}
+                  className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-black font-black text-white shadow-lg transition hover:bg-black/90 hover:-translate-y-0.5"
+                >
+                  <Mic2 size={18} /> Accepter le défi
+                </button>
+                <button
+                  type="button"
+                  onClick={onDeclineRematch}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-black/15 font-bold text-black/60 hover:text-black hover:bg-black/5 transition"
+                >
+                  <X size={16} /> Décliner et quitter
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Host: Rematch Track Picker Modal */}
+      {showTrackModal ? (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center justify-between pb-4 border-b border-black/10">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-[#f13d8f]">Revanche immédiate</p>
+                  <h3 className="text-2xl font-black tracking-tight">Choisis le morceau du duel</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTrackModal(false)}
+                  className="grid h-9 w-9 place-items-center rounded-full bg-black/5 text-black/60 hover:bg-black/10 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-4 max-h-[380px] overflow-y-auto pr-1 flex flex-col gap-2.5">
+                {catalogTracks.map((catalogTrack) => {
+                  const isSelected = catalogTrack.id === selectedRematchTrackId;
+                  return (
+                    <button
+                      type="button"
+                      key={catalogTrack.id}
+                      onClick={() => setSelectedRematchTrackId(catalogTrack.id)}
+                      className={`flex items-center gap-3.5 p-3 rounded-2xl text-left border-2 transition ${
+                        isSelected
+                          ? "border-black bg-[#faf9f6] shadow-sm"
+                          : "border-black/5 bg-white hover:border-black/15"
+                      }`}
+                    >
+                      <img
+                        src={catalogTrack.cover}
+                        alt=""
+                        className="h-14 w-14 rounded-xl object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-black text-sm truncate">{catalogTrack.title}</h4>
+                        <p className="text-xs font-semibold text-black/50 truncate">
+                          {catalogTrack.artist} · {catalogTrack.durationLabel}
+                        </p>
+                      </div>
+                      <div
+                        className={`grid h-6 w-6 place-items-center rounded-full border-2 ${
+                          isSelected ? "border-black bg-black text-white" : "border-black/20"
+                        }`}
+                      >
+                        {isSelected ? <Check size={13} strokeWidth={3} /> : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTrackModal(false)}
+                  className="h-13 flex-1 rounded-xl border border-black/15 font-black text-sm hover:bg-black/5 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTrackModal(false);
+                    onProposeRematch(selectedRematchTrackId);
+                  }}
+                  className="h-13 flex-[2] rounded-xl bg-black font-black text-sm text-white shadow-md hover:bg-black/90 transition flex items-center justify-center gap-2"
+                >
+                  <Swords size={16} /> Envoyer le défi à {partnerName}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

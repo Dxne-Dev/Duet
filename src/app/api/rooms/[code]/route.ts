@@ -67,6 +67,7 @@ export async function POST(request: Request, context: RouteContext) {
       token?: unknown;
       ready?: unknown;
       score?: unknown;
+      trackId?: unknown;
     };
     const room = await findRoom(code);
 
@@ -192,6 +193,72 @@ export async function POST(request: Request, context: RouteContext) {
         .where(eq(rooms.id, room.id))
         .returning();
       return Response.json({ room: toPublicRoom(updatedRoom ?? room, token) });
+    }
+
+    if (body.action === "propose_rematch") {
+      if (role !== "A") {
+        return Response.json({ error: "Seul l’hôte peut proposer une revanche." }, { status: 403 });
+      }
+      const nextTrackId = typeof body.trackId === "string" && body.trackId ? body.trackId : room.trackId;
+      const [updatedRoom] = await db
+        .update(rooms)
+        .set({
+          status: "REMATCH_PROPOSED",
+          trackId: nextTrackId,
+          playerAReady: true,
+          playerBReady: false,
+          playerAScore: null,
+          playerBScore: null,
+          startTimestamp: null,
+          offer: null,
+          answer: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(rooms.id, room.id))
+        .returning();
+      return Response.json({ room: toPublicRoom(updatedRoom ?? room, token) });
+    }
+
+    if (body.action === "accept_rematch") {
+      if (role !== "B") {
+        return Response.json({ error: "Seul l’adversaire peut accepter la revanche." }, { status: 403 });
+      }
+      const [updatedRoom] = await db
+        .update(rooms)
+        .set({
+          status: "READY",
+          playerAReady: true,
+          playerBReady: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(rooms.id, room.id))
+        .returning();
+      return Response.json({ room: toPublicRoom(updatedRoom ?? room, token) });
+    }
+
+    if (body.action === "decline_rematch" || body.action === "cancel_rematch") {
+      const declinerName = role === "B" ? (room.playerBName ?? "Le partenaire") : room.playerAName;
+      const destroyTimestamp = Date.now() + 8000;
+      const [abandonedRoom] = await db
+        .update(rooms)
+        .set({
+          status: "ABANDONED",
+          abandonedByName: declinerName,
+          destroyAt: destroyTimestamp,
+          updatedAt: new Date(),
+        })
+        .where(eq(rooms.id, room.id))
+        .returning();
+
+      setTimeout(async () => {
+        try {
+          await db.delete(rooms).where(eq(rooms.id, room.id));
+        } catch {
+          // Ignore
+        }
+      }, 8500);
+
+      return Response.json({ room: toPublicRoom(abandonedRoom ?? room, token) });
     }
 
     return Response.json({ error: "Action inconnue." }, { status: 400 });
