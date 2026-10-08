@@ -4,6 +4,8 @@ import { rooms } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { cleanRoomCode } from "@/lib/room-utils";
 import { getTrack, tracks } from "@/lib/tracks";
+import fs from "fs";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +28,23 @@ export async function GET(request: Request) {
       }
     }
 
-    // Build absolute URL for the cover to embed in JSX
-    const baseUrl = new URL(request.url).origin;
-    const coverUrl = track.cover.startsWith("http") ? track.cover : `${baseUrl}${track.cover}`;
+    // Load cover directly from filesystem as base64 Data URI for instant Satori render with zero network latency
+    let coverSrc = track.cover;
+    try {
+      if (track.cover.startsWith("/")) {
+        const localPath = path.join(process.cwd(), "public", track.cover);
+        if (fs.existsSync(localPath)) {
+          const buffer = fs.readFileSync(localPath);
+          const ext = path.extname(localPath).replace(".", "") || "jpeg";
+          const mime = ext === "svg" ? "image/svg+xml" : `image/${ext === "jpg" ? "jpeg" : ext}`;
+          coverSrc = `data:${mime};base64,${buffer.toString("base64")}`;
+        }
+      }
+    } catch {
+      // Fallback to absolute URL if fs read fails
+      const baseUrl = new URL(request.url).origin;
+      coverSrc = track.cover.startsWith("http") ? track.cover : `${baseUrl}${track.cover}`;
+    }
 
     return new ImageResponse(
       (
@@ -214,7 +230,7 @@ export async function GET(request: Request) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={coverUrl}
+              src={coverSrc}
               alt={track.title}
               style={{
                 width: "100%",
@@ -228,6 +244,10 @@ export async function GET(request: Request) {
       {
         width: 1200,
         height: 630,
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=86400",
+        },
       },
     );
   } catch {

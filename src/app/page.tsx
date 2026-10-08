@@ -17,21 +17,20 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const { room: rawCode } = await searchParams;
   const code = cleanRoomCode(rawCode);
 
-  let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  let host: string | null = null;
+  let proto = "https";
   try {
     const headersList = await headers();
-    const host = headersList.get("x-forwarded-host") || headersList.get("host");
-    const proto = headersList.get("x-forwarded-proto") || "https";
-    if (host) {
-      baseUrl = `${proto}://${host}`;
-    }
+    host = headersList.get("x-forwarded-host") || headersList.get("host");
+    proto = headersList.get("x-forwarded-proto") || "https";
   } catch {
     // Fallback
   }
 
-  if (!baseUrl || baseUrl.includes("localhost")) {
-    baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : baseUrl || "http://localhost:3000";
-  }
+  const baseUrl = host
+    ? `${proto}://${host}`
+    : process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   if (code) {
     try {
@@ -42,19 +41,22 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       if (room) {
         const hostName = room.playerAName || "Un ami";
         const track = getTrack(room.trackId) ?? tracks[0];
-        
-        // Shortened title to stay under 58 chars (Google & social truncation safe)
-        const title = `Défi de ${hostName} · ${track.title} 🎤`;
-        const description = `Rejoins ${hostName} pour un duel vocal en direct sur ${track.title} (${track.artist}). Prépare ton micro !`;
-        
-        // Exact 1.91:1 ratio (1200x630) social card with album cover & CTA
+
+        // Impactful YouTube-style title & description optimized for WhatsApp/Telegram/iMessage
+        const title = `${track.title} · Duel vocal de ${hostName} 🎤`;
+        const description = `Rejoins ${hostName} pour chanter en direct à deux sur ${track.title} (${track.artist}) ! Karaoké synchronisé, micro en direct, sans inscription.`;
+
         const ogImageUrl = `${baseUrl}/api/og?room=${code}`;
+        const coverDirectUrl = track.cover.startsWith("http") ? track.cover : `${baseUrl}${track.cover}`;
         const roomUrl = `${baseUrl}/?room=${code}`;
 
         return {
           title,
           description,
           metadataBase: new URL(baseUrl),
+          alternates: {
+            canonical: roomUrl,
+          },
           openGraph: {
             title,
             description,
@@ -68,8 +70,16 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
                 secureUrl: ogImageUrl,
                 width: 1200,
                 height: 630,
-                alt: `Duel vocal avec ${hostName} sur ${track.title}`,
+                alt: `Duel vocal duet. avec ${hostName} sur ${track.title}`,
                 type: "image/png",
+              },
+              {
+                url: coverDirectUrl,
+                secureUrl: coverDirectUrl,
+                width: 500,
+                height: 500,
+                alt: `Pochette de ${track.title}`,
+                type: "image/jpeg",
               },
             ],
           },
@@ -78,6 +88,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
             title,
             description,
             images: [ogImageUrl],
+            creator: "@duet_app",
+            site: "@duet_app",
+          },
+          other: {
+            "theme-color": "#0d0d12",
           },
         };
       }
@@ -118,6 +133,11 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       description:
         "Défie un ami dans un duel vocal en direct ! Karaoké synchronisé et score en temps réel, sans inscription.",
       images: [defaultImageUrl],
+      creator: "@duet_app",
+      site: "@duet_app",
+    },
+    other: {
+      "theme-color": "#0d0d12",
     },
   };
 }
