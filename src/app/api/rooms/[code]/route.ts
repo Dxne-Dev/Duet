@@ -181,6 +181,13 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (body.action === "finish") {
+      if (room.status !== "PLAYING") {
+        return Response.json({ room: toPublicRoom(room, token) });
+      }
+      if (room.startTimestamp && Date.now() < room.startTimestamp) {
+        return Response.json({ room: toPublicRoom(room, token) });
+      }
+
       const score = typeof body.score === "number" ? Math.max(0, Math.min(100, Math.round(body.score))) : null;
       const [updatedRoom] = await db
         .update(rooms)
@@ -224,12 +231,12 @@ export async function POST(request: Request, context: RouteContext) {
       const [updatedRoom] = await db
         .update(rooms)
         .set({
-          status: "READY",
+          status: "PLAYING",
+          startTimestamp: Date.now() + 4000,
           playerAReady: true,
           playerBReady: true,
           playerAScore: null,
           playerBScore: null,
-          startTimestamp: null,
           offer: null,
           answer: null,
           updatedAt: new Date(),

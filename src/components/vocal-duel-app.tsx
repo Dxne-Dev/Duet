@@ -230,15 +230,17 @@ export default function VocalDuelApp() {
 
   const [lastPlayedTrack, setLastPlayedTrack] = useState<Track | null>(null);
 
-  // Reset counters and finish state when duel starts or enters ready
+  // Reset counters and elapsed when duel enters a non-playing status
   useEffect(() => {
-    if (room?.status === "READY" || room?.status === "PLAYING") {
+    if (room?.status !== "PLAYING") {
+      setElapsed(-4);
       finishSent.current = false;
       mySingingHitsRef.current = 0;
       myTurnTicksRef.current = 0;
       interruptionHitsRef.current = 0;
     }
-    if (room?.status === "PLAYING" || room?.status === "FINISHED") {
+    if (room?.status === "PLAYING") {
+      finishSent.current = false;
       if (selectedTrack) {
         setLastPlayedTrack(selectedTrack);
       }
@@ -308,15 +310,19 @@ export default function VocalDuelApp() {
   useEffect(() => {
     if (
       room?.status !== "PLAYING" ||
-      elapsed < selectedTrack.duration ||
+      !room.startTimestamp ||
       finishSent.current
     ) {
+      return;
+    }
+    const currentSeconds = (Date.now() - room.startTimestamp) / 1000;
+    if (currentSeconds < selectedTrack.duration) {
       return;
     }
     finishSent.current = true;
     const myScore = computeScore();
     void postRoomAction("finish", { score: myScore }).catch(() => undefined);
-  }, [computeScore, elapsed, postRoomAction, room?.status, selectedTrack.duration]);
+  }, [computeScore, elapsed, postRoomAction, room?.startTimestamp, room?.status, selectedTrack.duration]);
 
   const rememberSession = (nextRoom: PublicRoom, nextToken: string) => {
     window.localStorage.setItem("duet:nickname", nickname.trim());
@@ -521,7 +527,16 @@ export default function VocalDuelApp() {
         onHome={goHome}
         onShare={copyInvite}
         onProposeRematch={(nextTrackId) => void postRoomAction("propose_rematch", { trackId: nextTrackId }).catch((rematchErr: Error) => setError(rematchErr.message))}
-        onAcceptRematch={() => void postRoomAction("accept_rematch").catch((rematchErr: Error) => setError(rematchErr.message))}
+        onAcceptRematch={() => {
+          void (async () => {
+            try {
+              await unlockDuelAudio();
+              await postRoomAction("accept_rematch");
+            } catch (rematchErr) {
+              setError(rematchErr instanceof Error ? rematchErr.message : "Impossible d'accepter la revanche.");
+            }
+          })();
+        }}
         onDeclineRematch={() => void postRoomAction("decline_rematch").catch(() => goHome())}
         onCancelRematch={() => void postRoomAction("cancel_rematch").catch(() => goHome())}
         copied={copied}
