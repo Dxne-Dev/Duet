@@ -207,8 +207,6 @@ export async function POST(request: Request, context: RouteContext) {
           trackId: nextTrackId,
           playerAReady: true,
           playerBReady: false,
-          playerAScore: null,
-          playerBScore: null,
           startTimestamp: null,
           offer: null,
           answer: null,
@@ -229,6 +227,11 @@ export async function POST(request: Request, context: RouteContext) {
           status: "READY",
           playerAReady: true,
           playerBReady: true,
+          playerAScore: null,
+          playerBScore: null,
+          startTimestamp: null,
+          offer: null,
+          answer: null,
           updatedAt: new Date(),
         })
         .where(eq(rooms.id, room.id))

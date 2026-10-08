@@ -228,6 +228,8 @@ export default function VocalDuelApp() {
     isMyTurnRef.current = isMyTurn;
   }, [isMyTurn]);
 
+  const [lastPlayedTrack, setLastPlayedTrack] = useState<Track | null>(null);
+
   // Reset counters and finish state when duel starts or enters ready
   useEffect(() => {
     if (room?.status === "READY" || room?.status === "PLAYING") {
@@ -236,7 +238,12 @@ export default function VocalDuelApp() {
       myTurnTicksRef.current = 0;
       interruptionHitsRef.current = 0;
     }
-  }, [room?.status]);
+    if (room?.status === "PLAYING" || room?.status === "FINISHED") {
+      if (selectedTrack) {
+        setLastPlayedTrack(selectedTrack);
+      }
+    }
+  }, [room?.status, selectedTrack]);
 
   useEffect(() => {
     if (room?.status !== "PLAYING" || !room.startTimestamp) return;
@@ -509,7 +516,7 @@ export default function VocalDuelApp() {
     return (
       <Results
         room={room}
-        track={selectedTrack}
+        track={lastPlayedTrack || selectedTrack}
         catalogTracks={catalogTracks}
         onHome={goHome}
         onShare={copyInvite}
@@ -1303,11 +1310,16 @@ function Results({
   const [showTrackModal, setShowTrackModal] = useState(false);
   const [selectedRematchTrackId, setSelectedRematchTrackId] = useState<string>(track.id);
 
-  const scoreA = room.playerAScore ?? 85;
-  const scoreB = room.playerBScore ?? 85;
+  const scoreA = room.playerAScore ?? 0;
+  const scoreB = room.playerBScore ?? 0;
   const isTie = scoreA === scoreB;
   const winnerRole = isTie ? "TIE" : scoreA > scoreB ? "A" : "B";
   const duoSync = Math.round((scoreA + scoreB) / 2);
+
+  const rematchTrack =
+    catalogTracks.find((t) => t.id === room.trackId) ??
+    getTrack(room.trackId) ??
+    track;
 
   const myRole = room.role;
   const isHost = myRole === "A";
@@ -1415,7 +1427,7 @@ function Results({
             <div className="flex items-center gap-3">
               <Loader2 size={20} className="animate-spin text-[#f13d8f]" />
               <div className="text-xs">
-                <p className="font-black text-white">Revanche envoyée à {partnerName} sur {track.title}</p>
+                <p className="font-black text-white">Revanche envoyée à {partnerName} sur {rematchTrack.title}</p>
                 <p className="text-white/55 font-medium">En attente de sa réponse...</p>
               </div>
             </div>
@@ -1435,7 +1447,7 @@ function Results({
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md">
           <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="relative h-44 overflow-hidden bg-black">
-              <img src={track.cover} alt="" className="h-full w-full object-cover opacity-70" />
+              <img src={rematchTrack.cover} alt="" className="h-full w-full object-cover opacity-70" />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
               <div className="absolute top-4 left-4 flex items-center gap-1.5 rounded-full bg-[#f13d8f] px-3 py-1 text-[11px] font-black uppercase text-white tracking-wider">
                 <Swords size={13} /> Revanche en direct
@@ -1444,14 +1456,14 @@ function Results({
                 <p className="text-xs font-black uppercase tracking-wider text-white/60">
                   {partnerName} vous défie à nouveau !
                 </p>
-                <h3 className="text-2xl font-black tracking-tight">{track.title}</h3>
-                <p className="text-xs font-bold text-white/70">{track.artist} · {track.durationLabel}</p>
+                <h3 className="text-2xl font-black tracking-tight">{rematchTrack.title}</h3>
+                <p className="text-xs font-bold text-white/70">{rematchTrack.artist} · {rematchTrack.durationLabel}</p>
               </div>
             </div>
 
             <div className="p-6 sm:p-8">
               <p className="text-sm font-semibold text-black/70 leading-relaxed">
-                <span className="font-black text-black">{partnerName}</span> a relancé un duel dans ce salon sur <span className="font-black text-black">{track.title}</span>.
+                <span className="font-black text-black">{partnerName}</span> a relancé un duel dans ce salon sur <span className="font-black text-black">{rematchTrack.title}</span>.
               </p>
 
               <div className="mt-6 flex flex-col gap-3">
