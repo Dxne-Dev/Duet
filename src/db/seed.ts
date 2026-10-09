@@ -4,8 +4,13 @@ dotenv.config({ path: ".env" });
 import { db } from "./index";
 import { tracksTable } from "./schema";
 import { tracks } from "../lib/tracks";
+import { notInArray } from "drizzle-orm";
 
 async function seed() {
+  console.log("Cleaning obsolete tracks from Supabase database...");
+  const validIds = tracks.map((t) => t.id);
+  await db.delete(tracksTable).where(notInArray(tracksTable.id, validIds));
+
   console.log("Seeding tracks to Supabase database...");
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
