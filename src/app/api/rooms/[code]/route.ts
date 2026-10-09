@@ -68,6 +68,7 @@ export async function POST(request: Request, context: RouteContext) {
       ready?: unknown;
       score?: unknown;
       trackId?: unknown;
+      message?: unknown;
     };
     const room = await findRoom(code);
 
@@ -269,6 +270,22 @@ export async function POST(request: Request, context: RouteContext) {
       }, 8500);
 
       return Response.json({ room: toPublicRoom(abandonedRoom ?? room, token) });
+    }
+
+    if (body.action === "update_message") {
+      if (role !== "A") {
+        return Response.json({ error: "Seul l’hôte peut personnaliser le message." }, { status: 403 });
+      }
+      const rawMsg = typeof body.message === "string" ? body.message.trim().slice(0, 160) : null;
+      const [updatedRoom] = await db
+        .update(rooms)
+        .set({
+          customMessage: rawMsg || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(rooms.id, room.id))
+        .returning();
+      return Response.json({ room: toPublicRoom(updatedRoom ?? room, token) });
     }
 
     return Response.json({ error: "Action inconnue." }, { status: 400 });

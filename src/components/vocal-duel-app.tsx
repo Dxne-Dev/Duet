@@ -229,6 +229,7 @@ export default function VocalDuelApp() {
   }, [isMyTurn]);
 
   const [lastPlayedTrack, setLastPlayedTrack] = useState<Track | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // Reset counters and elapsed when duel enters a non-playing status
   useEffect(() => {
@@ -520,47 +521,73 @@ export default function VocalDuelApp() {
 
   if (room?.status === "FINISHED" || room?.status === "REMATCH_PROPOSED") {
     return (
-      <Results
-        room={room}
-        track={lastPlayedTrack || selectedTrack}
-        catalogTracks={catalogTracks}
-        onHome={goHome}
-        onShare={copyInvite}
-        onProposeRematch={(nextTrackId) => void postRoomAction("propose_rematch", { trackId: nextTrackId }).catch((rematchErr: Error) => setError(rematchErr.message))}
-        onAcceptRematch={() => {
-          void (async () => {
-            try {
-              await unlockDuelAudio();
-              await postRoomAction("accept_rematch");
-            } catch (rematchErr) {
-              setError(rematchErr instanceof Error ? rematchErr.message : "Impossible d'accepter la revanche.");
-            }
-          })();
-        }}
-        onDeclineRematch={() => void postRoomAction("decline_rematch").catch(() => goHome())}
-        onCancelRematch={() => void postRoomAction("cancel_rematch").catch(() => goHome())}
-        copied={copied}
-      />
+      <>
+        <Results
+          room={room}
+          track={lastPlayedTrack || selectedTrack}
+          catalogTracks={catalogTracks}
+          onHome={goHome}
+          onShare={() => setShowInviteModal(true)}
+          onProposeRematch={(nextTrackId) => void postRoomAction("propose_rematch", { trackId: nextTrackId }).catch((rematchErr: Error) => setError(rematchErr.message))}
+          onAcceptRematch={() => {
+            void (async () => {
+              try {
+                await unlockDuelAudio();
+                await postRoomAction("accept_rematch");
+              } catch (rematchErr) {
+                setError(rematchErr instanceof Error ? rematchErr.message : "Impossible d'accepter la revanche.");
+              }
+            })();
+          }}
+          onDeclineRematch={() => void postRoomAction("decline_rematch").catch(() => goHome())}
+          onCancelRematch={() => void postRoomAction("cancel_rematch").catch(() => goHome())}
+          copied={copied}
+        />
+        {showInviteModal ? (
+          <CustomInviteModal
+            room={room}
+            track={lastPlayedTrack || selectedTrack}
+            onClose={() => setShowInviteModal(false)}
+            onToast={(msg) => setToast(msg)}
+            onSaveMessage={async (msg) => {
+              await postRoomAction("update_message", { message: msg });
+            }}
+          />
+        ) : null}
+      </>
     );
   }
 
   if (room) {
     return (
-      <Lobby
-        room={room}
-        track={selectedTrack}
-        loading={loading}
-        error={error}
-        connection={connection}
-        micLevel={micLevel}
-        micEnabled={micEnabled}
-        bothReady={bothReady}
-        copied={copied}
-        onBack={leaveRoom}
-        onCopy={copyInvite}
-        onReady={toggleReady}
-        onStart={startDuel}
-      />
+      <>
+        <Lobby
+          room={room}
+          track={selectedTrack}
+          loading={loading}
+          error={error}
+          connection={connection}
+          micLevel={micLevel}
+          micEnabled={micEnabled}
+          bothReady={bothReady}
+          copied={copied}
+          onBack={leaveRoom}
+          onCopy={() => setShowInviteModal(true)}
+          onReady={toggleReady}
+          onStart={startDuel}
+        />
+        {showInviteModal ? (
+          <CustomInviteModal
+            room={room}
+            track={selectedTrack}
+            onClose={() => setShowInviteModal(false)}
+            onToast={(msg) => setToast(msg)}
+            onSaveMessage={async (msg) => {
+              await postRoomAction("update_message", { message: msg });
+            }}
+          />
+        ) : null}
+      </>
     );
   }
 
@@ -1614,6 +1641,15 @@ function JoinOverlay({ code, room, nickname, setNickname, loading, error, onClos
           </div>
         </div>
         <div className="p-6 sm:p-8">
+          {room.customMessage ? (
+            <div className="mb-5 flex items-start gap-3 rounded-2xl border border-[#f13d8f]/30 bg-[#f13d8f]/10 p-3.5 text-xs text-black">
+              <span className="text-lg leading-none">💬</span>
+              <div>
+                <p className="font-extrabold uppercase tracking-wider text-[10px] text-[#d92f72]">Message de {room.players[0].name} :</p>
+                <p className="mt-0.5 font-bold italic text-black/90">« {room.customMessage} »</p>
+              </div>
+            </div>
+          ) : null}
           <div className="mb-6 flex items-center justify-between rounded-xl bg-[#f4f1eb] px-4 py-3">
             <span className="text-xs font-black uppercase tracking-wider text-black/40">Code salon</span>
             <span className="font-mono text-xl font-black tracking-[0.2em]">{code}</span>
@@ -1628,6 +1664,181 @@ function JoinOverlay({ code, room, nickname, setNickname, loading, error, onClos
             {loading ? <Loader2 size={19} className="animate-spin" /> : <Mic2 size={19} />} Rejoindre le duel
           </button>
           <p className="mt-4 text-center text-xs font-semibold text-black/35"><Headphones size={13} className="mr-1 inline" /> Mets un casque pour éviter l’écho.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomInviteModal({
+  room,
+  track,
+  onClose,
+  onToast,
+  onSaveMessage,
+}: {
+  room: PublicRoom;
+  track: Track;
+  onClose: () => void;
+  onToast: (msg: string) => void;
+  onSaveMessage: (msg: string) => Promise<void>;
+}) {
+  const [customMsg, setCustomMsg] = useState(room.customMessage || "");
+  const [saving, setSaving] = useState(false);
+
+  const PUNCHLINES = [
+    "Tu es prêt à te faire battre ? 🔥",
+    "Tu as les tripes j'espère ? 🎤",
+    "Prépare tes cordes vocales ⚔️",
+    "Pas d'excuse cette fois !",
+    "On chante ensemble en direct ? 🎙️",
+  ];
+
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/?room=${room.code}` : `/?room=${room.code}`;
+  const hostName = room.players[0]?.name || "Ton ami";
+
+  const fullShareText = customMsg.trim()
+    ? `« ${customMsg.trim()} » 👉 Rejoins ${hostName} pour un duel vocal sur ${track.title} : ${shareUrl}`
+    : `Rejoins ${hostName} pour un duel vocal en direct sur ${track.title} 🎤 : ${shareUrl}`;
+
+  const handleShareOrCopy = async (onlyLink = false) => {
+    setSaving(true);
+    try {
+      const messageToSave = onlyLink ? "" : customMsg.trim();
+      await onSaveMessage(messageToSave);
+
+      const textToCopy = onlyLink ? shareUrl : fullShareText;
+
+      if (!onlyLink && typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            title: `Duel vocal duet. sur ${track.title}`,
+            text: fullShareText,
+            url: shareUrl,
+          });
+          onToast("Invitation partagée !");
+          onClose();
+          return;
+        } catch {
+          // Fallback to clipboard
+        }
+      }
+
+      await navigator.clipboard.writeText(textToCopy);
+      onToast(onlyLink ? "Lien copié dans le presse-papier !" : "Message personnalisé & lien copiés !");
+      onClose();
+    } catch {
+      onToast("Erreur lors de la copie.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/70 p-4 backdrop-blur-md">
+      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="p-6 sm:p-8">
+          <div className="flex items-center justify-between pb-4 border-b border-black/10">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-[#f13d8f]">Partage & Défi</p>
+              <h3 className="text-2xl font-black tracking-tight mt-0.5">Personnalise ton invitation 🎯</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-full bg-black/5 text-black hover:bg-black/10 transition"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <p className="mt-4 text-xs font-semibold text-black/55">
+            Ajoute une punchline ou un mot de défi. Ton adversaire le verra dans l'aperçu du message et à son arrivée sur le salon.
+          </p>
+
+          {/* Quick Punchline Chips */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PUNCHLINES.map((punchline) => (
+              <button
+                key={punchline}
+                type="button"
+                onClick={() => setCustomMsg(punchline)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  customMsg === punchline
+                    ? "bg-black text-white shadow-sm"
+                    : "bg-[#f4f1eb] text-black/80 hover:bg-black/10"
+                }`}
+              >
+                {punchline}
+              </button>
+            ))}
+          </div>
+
+          {/* Text Input */}
+          <div className="mt-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={customMsg}
+                maxLength={120}
+                onChange={(e) => setCustomMsg(e.target.value)}
+                placeholder="Écris ton propre message de défi..."
+                className="h-13 w-full rounded-xl border-2 border-black/10 bg-[#faf9f6] px-4 font-bold text-sm outline-none transition focus:border-black placeholder:text-black/30"
+              />
+              {customMsg ? (
+                <button
+                  type="button"
+                  onClick={() => setCustomMsg("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-black/40 hover:text-black"
+                >
+                  Effacer
+                </button>
+              ) : null}
+            </div>
+            <div className="mt-1 flex justify-between text-[11px] text-black/40 font-semibold px-1">
+              <span>Laisser vide pour le message classique</span>
+              <span>{customMsg.length}/120</span>
+            </div>
+          </div>
+
+          {/* Live Preview Box */}
+          <div className="mt-4 rounded-2xl bg-[#171717] p-4 text-white">
+            <p className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-2">Aperçu du message partagé</p>
+            <div className="rounded-xl bg-white/10 p-3 text-xs font-semibold leading-relaxed">
+              <p className="font-bold text-white">
+                {customMsg.trim() ? `💬 « ${customMsg.trim()} »` : `🎙️ Rejoins ${hostName} pour un duel vocal sur ${track.title} !`}
+              </p>
+              <p className="mt-1 text-[#b8e735] font-mono text-[11px] truncate">
+                {shareUrl}
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-6 flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => void handleShareOrCopy(false)}
+              disabled={saving}
+              className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-black font-black text-white shadow-lg transition hover:bg-black/90 hover:-translate-y-0.5 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 size={19} className="animate-spin" />
+              ) : (
+                <>
+                  <Share2 size={18} /> Copier & Partager le défi
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleShareOrCopy(true)}
+              disabled={saving}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold text-black/60 hover:text-black hover:bg-black/5 transition"
+            >
+              <Link2 size={15} /> Copier uniquement le lien simple
+            </button>
+          </div>
         </div>
       </div>
     </div>

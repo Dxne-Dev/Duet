@@ -40,6 +40,7 @@ export const rooms = pgTable(
     startTimestamp: bigint("start_timestamp", { mode: "number" }),
     playerAScore: integer("player_a_score"),
     playerBScore: integer("player_b_score"),
+    customMessage: varchar("custom_message", { length: 255 }),
     abandonedByName: varchar("abandoned_by_name", { length: 50 }),
     destroyAt: bigint("destroy_at", { mode: "number" }),
     offer: jsonb("offer").$type<SignalDescription>(),

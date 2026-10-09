@@ -44,7 +44,9 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
         // Impactful YouTube-style title & description optimized for WhatsApp/Telegram/iMessage
         const title = `${track.title} · Duel vocal de ${hostName} 🎤`;
-        const description = `Rejoins ${hostName} pour chanter en direct à deux sur ${track.title} (${track.artist}) ! Karaoké synchronisé, micro en direct, sans inscription.`;
+        const description = room.customMessage
+          ? `« ${room.customMessage} » — Défi vocal lancé par ${hostName} sur ${track.title} (${track.artist}) ! Prépare ton micro.`
+          : `Rejoins ${hostName} pour chanter en direct à deux sur ${track.title} (${track.artist}) ! Karaoké synchronisé, micro en direct, sans inscription.`;
 
         const ogImageUrl = `${baseUrl}/api/og?room=${code}`;
         const coverDirectUrl = track.cover.startsWith("http") ? track.cover : `${baseUrl}${track.cover}`;

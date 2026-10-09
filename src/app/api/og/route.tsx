@@ -16,6 +16,7 @@ export async function GET(request: Request) {
 
     let hostName = "Un ami";
     let track = tracks[0];
+    let customMessage: string | null = null;
 
     if (code) {
       const room = await db.query.rooms.findFirst({
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
       if (room) {
         hostName = room.playerAName || "Un ami";
         track = getTrack(room.trackId) ?? tracks[0];
+        customMessage = room.customMessage || null;
       }
     }
 
@@ -170,16 +172,43 @@ export async function GET(request: Request) {
               >
                 {track.title}
               </h1>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "22px",
-                  fontWeight: 600,
-                  color: "rgba(255, 255, 255, 0.6)",
-                }}
-              >
-                {track.artist} · {track.durationLabel}
-              </p>
+              {customMessage ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    border: "1px solid rgba(255, 255, 255, 0.25)",
+                    padding: "8px 16px",
+                    borderRadius: "14px",
+                    maxWidth: "540px",
+                  }}
+                >
+                  <span style={{ fontSize: "16px" }}>💬</span>
+                  <span
+                    style={{
+                      color: "#ffffff",
+                      fontSize: "17px",
+                      fontWeight: 700,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    « {customMessage} »
+                  </span>
+                </div>
+              ) : (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                    fontWeight: 600,
+                    color: "rgba(255, 255, 255, 0.6)",
+                  }}
+                >
+                  {track.artist} · {track.durationLabel}
+                </p>
+              )}
             </div>
 
             {/* Call to Action Button */}

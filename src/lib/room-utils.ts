@@ -13,6 +13,7 @@ export type PublicRoom = {
   destroyAt?: number | null;
   playerAScore?: number | null;
   playerBScore?: number | null;
+  customMessage?: string | null;
   players: {
     role: PlayerRole;
     name: string | null;
@@ -39,6 +40,7 @@ export function toPublicRoom(room: Room, token: string | null): PublicRoom {
     destroyAt: room.destroyAt ?? null,
     playerAScore: room.playerAScore ?? null,
     playerBScore: room.playerBScore ?? null,
+    customMessage: room.customMessage ?? null,
     players: [
       {
         role: "A",
