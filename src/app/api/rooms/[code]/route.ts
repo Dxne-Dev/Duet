@@ -116,6 +116,12 @@ export async function POST(request: Request, context: RouteContext) {
         return Response.json({ room: toPublicRoom(room, token) });
       }
 
+      // If room is WAITING and host leaves alone, delete immediately
+      if (room.status === "WAITING" && role === "A" && !room.playerBToken) {
+        await db.delete(rooms).where(eq(rooms.id, room.id));
+        return Response.json({ success: true });
+      }
+
       const leaverName = role === "A" ? room.playerAName : (room.playerBName ?? "Le partenaire");
       const destroyTimestamp = Date.now() + 8000;
 

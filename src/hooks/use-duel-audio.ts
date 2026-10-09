@@ -184,7 +184,11 @@ export function usePeerAudio({ code, token, role, enabled, transmit }: PeerAudio
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       stream?.getTracks().forEach((track) => track.stop());
       peer?.close();
-      if (audioElement) audioElement.srcObject = null;
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.srcObject = null;
+        audioElement = null;
+      }
     };
   }, [code, token, role, enabled]);
 
@@ -304,11 +308,18 @@ export function useSynchronizedBackingTrack(
     }
 
     return () => {
-      if (syncInterval) window.clearInterval(syncInterval);
-      if (fallbackTimer) window.clearInterval(fallbackTimer);
+      if (syncInterval) {
+        window.clearInterval(syncInterval);
+        syncInterval = null;
+      }
+      if (fallbackTimer) {
+        window.clearInterval(fallbackTimer);
+        fallbackTimer = null;
+      }
       if (audioElement) {
         audioElement.pause();
-        audioElement.src = "";
+        audioElement.removeAttribute("src");
+        audioElement.load();
         audioElement = null;
       }
     };

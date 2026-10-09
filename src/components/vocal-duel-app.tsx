@@ -196,16 +196,36 @@ export default function VocalDuelApp() {
   }, [loadRoom]);
 
   useEffect(() => {
-    if (!room || !token) return;
+    if (!room || !token || room.status === "ABANDONED") return;
+    let consecutiveFails = 0;
     const poll = async () => {
       try {
         const nextRoom = await loadRoom(room.code, token);
+        consecutiveFails = 0;
         setRoom(nextRoom);
-      } catch {
-        // A brief network interruption should not eject either singer.
+      } catch (err: unknown) {
+        consecutiveFails += 1;
+        const errMsg = err instanceof Error ? err.message : "";
+        if (
+          errMsg.includes("introuvable") ||
+          errMsg.includes("fermé") ||
+          errMsg.includes("404") ||
+          consecutiveFails >= 3
+        ) {
+          setRoom((current) => {
+            if (!current || current.status === "ABANDONED") return current;
+            const partner = current.players.find((p) => p.role !== current.role);
+            return {
+              ...current,
+              status: "ABANDONED",
+              abandonedByName: partner?.name || "Ton partenaire",
+              destroyAt: Date.now() + 6000,
+            };
+          });
+        }
       }
     };
-    const timer = window.setInterval(poll, room.status === "PLAYING" ? 700 : 1100);
+    const timer = window.setInterval(poll, room.status === "PLAYING" ? 600 : 850);
     return () => window.clearInterval(timer);
   }, [loadRoom, room?.code, room?.status, token]);
 
@@ -461,16 +481,12 @@ export default function VocalDuelApp() {
     if (room && token && room.status !== "FINISHED" && room.status !== "ABANDONED") {
       try {
         const payload = JSON.stringify({ action: "leave", token });
-        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-          navigator.sendBeacon(`/api/rooms/${room.code}`, new Blob([payload], { type: "application/json" }));
-        } else {
-          await fetch(`/api/rooms/${room.code}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: payload,
-            keepalive: true,
-          });
-        }
+        fetch(`/api/rooms/${room.code}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        }).catch(() => undefined);
       } catch {
         // Ignore
       }
@@ -485,6 +501,13 @@ export default function VocalDuelApp() {
         const payload = JSON.stringify({ action: "leave", token });
         if (typeof navigator !== "undefined" && navigator.sendBeacon) {
           navigator.sendBeacon(`/api/rooms/${room.code}`, new Blob([payload], { type: "application/json" }));
+        } else {
+          fetch(`/api/rooms/${room.code}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+            keepalive: true,
+          }).catch(() => undefined);
         }
       } catch {
         // Ignore
